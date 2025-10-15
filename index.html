@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karachi Pre-Medical Career Dashboard (University Specific)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony -->
+    <!-- Application Structure Plan: The SPA is designed as a user-centric dashboard. The primary interaction is a percentage slider at the top, allowing students to input their score directly. This immediately filters a grid of career cards below, showing only eligible options. This structure was chosen for its directness and immediate feedback, empowering students to explore possibilities based on their actual results. Clicking a card expands it to show detailed information, including a dynamically highlighted list of eligible universities based on their cutoff and the student's score. A dynamic doughnut chart on the side provides a visual summary. The LLM section remains for personalized consultation. The core update involves filtering the career field if at least one university cutoff is met, and prominently highlighting eligible universities within the expanded card view. -->
+    <!-- Visualization & Content Choices: 
+        1. Percentage Filter: Report Info -> Student's Intermediate Percentage. Goal -> Filter options. Viz/Method -> HTML Range Slider. Interaction -> On input, JS filters and re-renders the career cards, calculates eligible universities per field, and updates the summary chart. Justification -> Intuitive input method.
+        2. University Requirements: Report Info -> Specific university cutoffs. Goal -> Detail & Action. Viz/Method -> Dynamic HTML List within card. Interaction -> University entries are visually highlighted if the student's current percentage meets the university's required cutoff. Justification -> Provides immediate, personalized guidance on where to apply.
+        3. Gemini API Integration: (Maintained) Goal -> Personalize advice and enable complex comparisons. Viz/Method -> Button-triggered LLM API call with loading state and results display. Justification -> Adds high-value, dynamic, and context-aware guidance.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8F7F4;
+            color: #333333;
+        }
+        .card {
+            background-color: #FFFFFF;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease-in-out;
+            overflow: hidden;
+        }
+        .card-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+        }
+        .card.open .card-details {
+            max-height: 3000px; /* Increased to accommodate longer lists */
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        .slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4A90E2;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -8px;
+        }
+        .slider-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #d1d5db;
+            border-radius: 9999px;
+        }
+        input[type='range']::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4A90E2;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -8px;
+        }
+        input[type='range']::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #4A90E2;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            height: auto;
+            max-height: 400px;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4A90E2;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-3xl md:text-5xl font-bold text-gray-800">Career Pathways Dashboard</h1>
+            <p class="mt-2 md:mt-4 text-base md:text-lg text-gray-600">For Pre-Medical Students of Karachi Board (HSC-II)</p>
+        </header>
+
+        <main>
+            <div class="sticky top-0 bg-opacity-80 backdrop-blur-md bg-[#F8F7F4] z-10 py-6 mb-8 rounded-lg shadow-sm">
+                <div class="max-w-2xl mx-auto">
+                    <label for="percentage-slider" class="block text-center font-semibold text-lg text-gray-700 mb-2">
+                        Your Intermediate (XII) Percentage: <span id="percentage-value" class="font-bold text-2xl text-[#4A90E2]">75%</span>
+                    </label>
+                    <input id="percentage-slider" type="range" min="50" max="100" value="75" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-track">
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+                <div class="lg:col-span-2">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Eligible Fields & Programs</h2>
+                    <div id="cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    </div>
+                </div>
+
+                <div class="lg:col-span-1">
+                     <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center lg:text-left">Opportunity Overview</h2>
+                     <div class="bg-white p-6 rounded-lg shadow-md">
+                        <p class="text-center text-gray-600 mb-4">This chart shows the types of career fields available to you based on your selected percentage. It updates as you move the slider.</p>
+                        <div class="chart-container">
+                            <canvas id="opportunityChart"></canvas>
+                        </div>
+                     </div>
+                </div>
+            </div>
+
+            <!-- Global LLM Custom Query Section -->
+            <section class="mt-12 p-6 bg-white rounded-lg shadow-xl border-t-4 border-[#BD10E0]">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">✨ Career Analyst Custom Query</h2>
+                <p class="text-gray-600 mb-4">Ask a complex question, such as comparing two fields, inquiring about global trends, or seeking advice tailored to your selected **<span id="llm-percent-display" class="font-bold text-[#4A90E2]">75%</span>** score.</p>
+                
+                <textarea id="custom-query-input" rows="4" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#4A90E2] focus:border-[#4A90E2]" placeholder="Example: Given a 75% score, should I prioritize Pharm-D or Computer Science for better long-term earning potential in Karachi?"></textarea>
+                
+                <button id="custom-query-button" class="mt-4 w-full md:w-auto px-6 py-3 bg-[#BD10E0] text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-150 flex items-center justify-center disabled:opacity-50" onclick="handleCustomQuery()">
+                    <div id="custom-query-loading" class="hidden loading-spinner mr-3"></div>
+                    ✨ Analyze & Advise
+                </button>
+                
+                <div id="custom-query-result" class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 whitespace-pre-wrap hidden">
+                    <!-- LLM result will be displayed here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const apiKey = "";
+        const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent";
+
+        // --- UPDATED DATA STRUCTURE WITH MORE UNIVERSITY DETAILS ---
+        const careerData = [
+            {
+                name: "MBBS (Bachelor of Medicine, Bachelor of Surgery)",
+                category: "Core Medical",
+                importance: "The primary medical degree to become a doctor. Requires high scores and MDCAT success.",
+                careerPakistan: "High demand in public and private hospitals, clinics, research institutions, and teaching. Specialization options are vast.",
+                careerAbroad: "Highly recognized worldwide. Requires passing licensing exams like USMLE (USA) or PLAB (UK). Excellent prospects.",
+                documents: "Matric Certificate, Inter Mark Sheet, CNIC/B-Form, Domicile, PRC, MDCAT Score, Photographs.",
+                universities: [
+                    { uniName: "Dow University of Health Sciences (DUHS)", minCutoff: 90, notes: "Top Public Sector. Requires very high MDCAT score (80%+). Strictly merit-based." },
+                    { uniName: "Jinnah Sindh Medical University (JSMU)", minCutoff: 87, notes: "Public Sector. Highly competitive. MDCAT is mandatory." },
+                    { uniName: "Karachi Metropolitan University (KMU)", minCutoff: 85, notes: "Public/Trust Sector. Requires high merit and MDCAT score." }
+                ]
+            },
+            {
+                name: "BDS (Bachelor of Dental Surgery)",
+                category: "Core Medical",
+                importance: "Professional degree for dentistry, focusing on oral health, diseases, and surgery.",
+                careerPakistan: "Strong potential in private practice. Jobs available in government hospitals and dental colleges.",
+                careerAbroad: "Good prospects abroad after passing licensing exams.",
+                documents: "Matric Certificate, Inter Mark Sheet, CNIC/B-Form, Domicile, PRC, MDCAT Score, Photographs.",
+                universities: [
+                    { uniName: "Dow Dental College (DDC)", minCutoff: 82, notes: "Public sector competition is fierce, slightly lower merit than MBBS." },
+                    { uniName: "Jinnah Sindh Medical University (JSMU) Dental", minCutoff: 79, notes: "Public sector option. Competitive." },
+                    { uniName: "KMU Dental College", minCutoff: 78, notes: "Public/Trust Sector. Admissions run parallel to BDS." }
+                ]
+            },
+            {
+                name: "Pharm-D (Doctor of Pharmacy)",
+                category: "Allied Health",
+                importance: "A professional doctorate in pharmacy, focusing on drug composition, synthesis, and patient care.",
+                careerPakistan: "Roles in pharmaceutical industry (production, R&D, sales), retail pharmacies, and hospitals.",
+                careerAbroad: "High demand in countries like Canada, Australia, and the Middle East.",
+                documents: "Matric Certificate, Inter Mark Sheet, CNIC/B-Form, Domicile, PRC, Photographs.",
+                universities: [
+                    { uniName: "University of Karachi (UoK)", minCutoff: 75, notes: "Top Public sector, highly desirable, competitive merit." },
+                    { uniName: "Sohail University (Faculty of Pharmacy)", minCutoff: 68, notes: "Private, recognized institution. Competitive entry test may be required." },
+                    { uniName: "Dow University (DCOP)", minCutoff: 70, notes: "Good public option. Admissions usually open in the Fall." }
+                ]
+            },
+            {
+                name: "DPT (Doctor of Physical Therapy)",
+                category: "Allied Health",
+                importance: "Focuses on physical rehabilitation to restore movement and function in patients.",
+                careerPakistan: "Growing field with roles in hospitals, rehab centers, sports facilities, and private clinics.",
+                careerAbroad: "Very high demand in North America and Europe.",
+                documents: "Matric Certificate, Inter Mark Sheet, CNIC/B-Form, Domicile, PRC, Photographs.",
+                universities: [
+                    { uniName: "Ziauddin University", minCutoff: 70, notes: "Reputable private option. May require entry test." },
+                    { uniName: "Iqra University (IU)", minCutoff: 62, notes: "Major private sector option in Karachi. Test/Interview required." },
+                    { uniName: "PNF Institute of Physical Medicine", minCutoff: 65, notes: "Well-established public/private hybrid. Admissions Oct-Dec." }
+                ]
+            },
+            {
+                name: "BS in Nursing (BSN)",
+                category: "Allied Health",
+                importance: "A vital healthcare profession focused on patient care, advocacy, and health management.",
+                careerPakistan: "Consistently high demand in all healthcare settings. Good career progression opportunities.",
+                careerAbroad: "Extremely high demand globally.",
+                documents: "Matric Certificate, Inter Mark Sheet, CNIC/B-Form, Domicile, PRC, Photographs.",
+                universities: [
+                    { uniName: "Aga Khan University (AKU)", minCutoff: 80, notes: "Highest merit, test-based admission, and high fee structure." },
+                    { uniName: "Iqra University (IU)", minCutoff: 60, notes: "Private sector option. Test/Interview required." },
+                    { uniName: "Dow University College of Nursing", minCutoff: 60, notes: "Good public sector option, merit is still competitive." }
+                ]
+            },
+            {
+                name: "BS in Computer Science (BSCS)",
+                category: "Tech Field (Alternate)",
+                importance: "A switch for pre-med students to the booming tech industry. Focuses on software, algorithms, and computing.",
+                careerPakistan: "Vast opportunities in software houses, startups, and freelance work. One of the highest-paying fields.",
+                careerAbroad: "Globally in-demand profession with opportunities for remote work and immigration.",
+                documents: "Matric Certificate, Inter Mark Sheet, CNIC/B-Form, Photographs. (Aptitude test mandatory).",
+                universities: [
+                    { uniName: "Institute of Business Administration (IBA)", minCutoff: 85, notes: "Highest merit, requires strong math background and entry test." },
+                    { uniName: "Habib University", minCutoff: 75, notes: "Liberal Arts core, high merit. Accepts pre-meds with strong aptitude test scores." },
+                    { uniName: "NED University", minCutoff: 70, notes: "Excellent public technical option. Requires pre-engineering in Inter or equivalent math prep." },
+                    { uniName: "Iqra University (IU)", minCutoff: 58, notes: "Good private option, accessible with an entry test." }
+                ]
+            },
+            {
+                name: "BS in Biosciences / Biotechnology",
+                category: "Biological Sciences",
+                importance: "The study of life and the use of biological systems for technological applications.",
+                careerPakistan: "Growing scope in research labs, pharmaceutical companies, and food industry. Higher education (MS/PhD) is key.",
+                careerAbroad: "Excellent opportunities in research and industry in developed countries.",
+                documents: "Matric Certificate, Inter Mark Sheet, CNIC/B-Form, Photographs.",
+                universities: [
+                    { uniName: "LUMS (School of Science & Engineering)", minCutoff: 85, notes: "Extremely high merit, requires SAT/LUMS test. Highly prestigious." },
+                    { uniName: "University of Karachi (UoK)", minCutoff: 65, notes: "Public sector, good for research. Merit competitive for public seats." },
+                    { uniName: "Karachi Metropolitan University (KMU)", minCutoff: 60, notes: "Offers BS in various allied health/biosciences sub-fields." }
+                ]
+            },
+            {
+                name: "BS in Architecture (B.Arch)",
+                category: "STEM (Alternate)",
+                importance: "Designing buildings and physical structures. A creative and technical field.",
+                careerPakistan: "Good demand in construction and real estate sectors. Requires strong drawing skills.",
+                careerAbroad: "Globally recognized, especially in regions with high development (Middle East, Gulf).",
+                documents: "Matric Certificate, Inter Mark Sheet, CNIC/B-Form, Photographs. (Aptitude/Drawing Test is MANDATORY).",
+                universities: [
+                    { uniName: "Dawood University of Engineering & Technology", minCutoff: 68, notes: "Highly reputable public technical option. Requires a strong aptitude test score." },
+                    { uniName: "NED University (Architecture Dept.)", minCutoff: 72, notes: "Very high merit for public seats. Requires entrance test." }
+                ]
+            },
+            {
+                name: "BS in Media Science / Communication",
+                category: "Liberal Arts (Alternate)",
+                importance: "Focuses on journalism, film, advertising, and digital media production.",
+                careerPakistan: "High demand in media, PR agencies, and digital marketing firms.",
+                careerAbroad: "Strong career path globally, especially in digital content creation and management.",
+                documents: "Matric Certificate, Inter Mark Sheet, CNIC/B-Form, Photographs.",
+                universities: [
+                    { uniName: "Federal Urdu University (FUUAST)", minCutoff: 55, notes: "Accessible public option. Merit based on test/interview." },
+                    { uniName: "Iqra University (IU)", minCutoff: 50, notes: "Private sector option with large departments." }
+                ]
+            },
+            {
+                name: "BS in Public Health (BPH)",
+                category: "Allied Health",
+                importance: "Focuses on community health, disease prevention, and health policy.",
+                careerPakistan: "Growing importance with roles in NGOs, government health departments, and international organizations.",
+                careerAbroad: "Strong career path in public sector and non-profit organizations worldwide.",
+                documents: "Matric Certificate, Inter Mark Sheet, CNIC/B-Form, Photographs.",
+                universities: [
+                    { uniName: "Dow University (DUHS)", minCutoff: 65, notes: "Good public option. Admissions often open in the Fall." },
+                    { uniName: "Iqra University (IU)", minCutoff: 58, notes: "Accessible private sector option." }
+                ]
+            }
+        ];
+        // --- END UPDATED DATA STRUCTURE ---
+
+        const slider = document.getElementById('percentage-slider');
+        const percentageValue = document.getElementById('percentage-value');
+        const cardsContainer = document.getElementById('cards-container');
+        const opportunityChartCanvas = document.getElementById('opportunityChart').getContext('2d');
+        const llmPercentDisplay = document.getElementById('llm-percent-display');
+        let opportunityChart;
+
+        const categoryColors = {
+            'Core Medical': '#4A90E2',
+            'Allied Health': '#50E3C2',
+            'Biological Sciences': '#F5A623',
+            'Tech Field (Alternate)': '#BD10E0',
+            'Liberal Arts (Alternate)': '#10B981', // New color for diverse fields
+            'STEM (Alternate)': '#EF4444' // New color for technical fields
+        };
+
+        async function callGeminiApi(systemPrompt, userQuery, maxRetries = 5, useGrounding = true) {
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            if (useGrounding) {
+                 payload.tools = [{ "google_search": {} }];
+            }
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(`${API_URL}?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && i < maxRetries - 1) {
+                            const delay = Math.pow(2, i) * 1000;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || 'No advice could be generated.';
+                    return text;
+
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        return `An error occurred while generating advice: ${error.message}. Please try again later.`;
+                    }
+                }
+            }
+        }
+
+        async function handlePersonalizedAdvice(careerName, buttonElement, resultElement) {
+            buttonElement.disabled = true;
+            resultElement.innerHTML = `<div class="flex items-center text-[#4A90E2]"><div class="loading-spinner mr-3"></div> Generating personalized roadmap...</div>`;
+            resultElement.classList.remove('hidden');
+
+            const systemPrompt = "Act as a specialist career counselor familiar with the Pakistani medical and allied health education landscape. Your response must be highly actionable, concise, and structured. Focus your advice specifically for a student from the Karachi Board.";
+            const userQuery = `Given the career choice of ${careerName}, provide three concrete, actionable next steps or specialized skills a student from the Karachi Board should focus on immediately after intermediate to maximize their success in this specific field, particularly regarding admissions and future employment.`;
+
+            const advice = await callGeminiApi(systemPrompt, userQuery, 5, true);
+
+            resultElement.innerHTML = `
+                <h5 class="font-semibold text-gray-800 mb-2">✨ Suggested Next Steps:</h5>
+                <div class="text-sm text-gray-700">${advice.replace(/\n/g, '<br>')}</div>
+            `;
+            buttonElement.disabled = false;
+        }
+
+        async function handleCustomQuery() {
+            const button = document.getElementById('custom-query-button');
+            const loading = document.getElementById('custom-query-loading');
+            const resultDiv = document.getElementById('custom-query-result');
+            const query = document.getElementById('custom-query-input').value.trim();
+            const currentPercentage = slider.value;
+
+            if (!query) {
+                resultDiv.innerHTML = 'Please enter your question before clicking "Analyze & Advise".';
+                resultDiv.classList.remove('hidden');
+                return;
+            }
+
+            button.disabled = true;
+            loading.classList.remove('hidden');
+            resultDiv.innerHTML = 'Analyzing and generating comprehensive advice...';
+            resultDiv.classList.remove('hidden');
+
+            const systemPrompt = "Act as an expert career analyst and information architect specializing in South Asian and international education and employment markets. Provide a comprehensive, structured response to the user's query, incorporating the fact that the student is from the Karachi Board with the provided Intermediate percentage. Use bolding and lists to ensure the result is easily digestible.";
+            const userQuery = `Analyze the following query for a pre-medical student with an Intermediate percentage of ${currentPercentage}% from the Karachi Board: ${query}`;
+
+            const resultText = await callGeminiApi(systemPrompt, userQuery, 5, true);
+
+            resultDiv.innerHTML = resultText.replace(/\n/g, '<br>');
+            button.disabled = false;
+            loading.classList.add('hidden');
+        }
+
+        function createUniversityListHTML(universities, currentPercentage) {
+            let html = '<ul class="mt-2 space-y-3 max-h-72 overflow-y-auto pr-2">'; // Added max-height for scrolling
+            let hasEligible = false;
+
+            universities.forEach(uni => {
+                const isEligible = currentPercentage >= uni.minCutoff;
+                const baseClass = 'p-3 rounded-lg flex justify-between items-center text-sm';
+                let uniClass = baseClass;
+                let statusText = `(Est. Cutoff: ${uni.minCutoff}%)`;
+
+                if (isEligible) {
+                    uniClass += ' bg-green-50 border-l-4 border-green-500 font-semibold';
+                    statusText = `<span class="text-green-600 font-bold">ELIGIBLE</span>`;
+                    hasEligible = true;
+                } else {
+                    uniClass += ' bg-gray-50 border-l-4 border-gray-300 text-gray-600';
+                    statusText = `<span class="text-red-500">${statusText}</span>`;
+                }
+
+                html += `
+                    <li class="${uniClass}">
+                        <div>
+                            <span class="font-medium">${uni.uniName}</span>
+                            <p class="text-xs text-gray-500">${uni.notes}</p>
+                        </div>
+                        ${statusText}
+                    </li>
+                `;
+            });
+            html += '</ul>';
+            if (!hasEligible) {
+                html = `<p class="text-sm text-red-500 font-medium pt-2">Your current score is below the estimated merit cutoff for all listed universities in this field. <span class="text-gray-600">(Focus on test preparation!)</span></p>` + html;
+            }
+            return html;
+        }
+
+        function createCard(data, currentPercentage) {
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            const universityListHTML = createUniversityListHTML(data.universities, currentPercentage);
+
+            card.innerHTML = `
+                <div class="p-5 cursor-pointer">
+                    <div class="flex justify-between items-start">
+                        <h3 class="text-xl font-bold text-gray-800">${data.name}</h3>
+                        <span class="text-2xl font-thin text-gray-400 transform transition-transform duration-300">&#x25BC;</span>
+                    </div>
+                    <p class="text-sm font-medium mt-1" style="color: ${categoryColors[data.category] || '#777'}">${data.category}</p>
+                    <p class="text-gray-600 mt-2">${data.importance}</p>
+                </div>
+                <div class="card-details px-5">
+                    <!-- NEW UNIVERSITY SECTION -->
+                    <div class="border-t border-gray-200 pt-4">
+                        <h4 class="font-bold text-gray-800 mb-2">University Eligibility Checker</h4>
+                        <p class="text-sm text-gray-600">Based on your ${currentPercentage}% score, here are the estimated admission chances:</p>
+                        ${universityListHTML}
+                    </div>
+
+                    <div class="border-t border-gray-200 pt-4 mt-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Career Potential</h4>
+                        <p class="text-sm text-gray-600 mb-1"><span class="font-medium">In Pakistan:</span> ${data.careerPakistan}</p>
+                        <p class="text-sm text-gray-600"><span class="font-medium">Abroad:</span> ${data.careerAbroad}</p>
+                    </div>
+                    <div class="border-t border-gray-200 pt-4 mt-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Admission Info (General)</h4>
+                        <p class="text-sm text-gray-600 mb-1"><span class="font-medium">Typical Documents:</span> ${data.documents}</p>
+                        <p class="text-sm text-gray-600"><span class="font-medium">Admission Period:</span> ${data.timeline}</p>
+                    </div>
+
+                    <!-- Gemini LLM Feature 1: Personalized Advice -->
+                    <div class="border-t border-gray-200 pt-4 mt-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Actionable Advice</h4>
+                        <button class="llm-advice-button px-4 py-2 bg-[#50E3C2] text-gray-800 font-semibold text-sm rounded-lg hover:bg-[#40C9A5] transition duration-150 flex items-center disabled:opacity-50">
+                            ✨ Get Personalized Next Steps
+                        </button>
+                        <div class="llm-advice-result mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-gray-700 hidden">
+                            <!-- Advice will load here -->
+                        </div>
+                    </div>
+
+                </div>
+            `;
+            
+            card.addEventListener('click', () => {
+                card.classList.toggle('open');
+                const arrow = card.querySelector('.text-2xl');
+                arrow.style.transform = card.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0deg)';
+            });
+
+            // Set up LLM button listener
+            const adviceButton = card.querySelector('.llm-advice-button');
+            const adviceResult = card.querySelector('.llm-advice-result');
+            adviceButton.addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                handlePersonalizedAdvice(data.name, adviceButton, adviceResult);
+            });
+            
+            return card;
+        }
+
+        function updateChart(filteredData) {
+            const categoryCounts = filteredData.reduce((acc, curr) => {
+                acc[curr.category] = (acc[curr.category] || 0) + 1;
+                return acc;
+            }, {});
+
+            const labels = Object.keys(categoryCounts);
+            const data = Object.values(categoryCounts);
+            const backgroundColors = labels.map(label => categoryColors[label] || '#CCCCCC');
+
+            if (opportunityChart) {
+                opportunityChart.data.labels = labels;
+                opportunityChart.data.datasets[0].data = data;
+                opportunityChart.data.datasets[0].backgroundColor = backgroundColors;
+                opportunityChart.update();
+            } else {
+                 opportunityChart = new Chart(opportunityChartCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: backgroundColors,
+                            borderColor: '#F8F7F4',
+                            borderWidth: 4,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    font: {
+                                        size: 14,
+                                        family: 'Inter'
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed !== null) {
+                                            label += context.parsed;
+                                        }
+                                        return label + (context.parsed === 1 ? ' field' : ' fields');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function renderContent(percentage) {
+            percentage = parseInt(percentage); // Ensure percentage is an integer for comparison
+            percentageValue.textContent = `${percentage}%`;
+            llmPercentDisplay.textContent = `${percentage}%`;
+            cardsContainer.innerHTML = '';
+
+            const filteredData = careerData.filter(d => {
+                // Filter: Only show the card if at least one university is eligible at this percentage.
+                return d.universities.some(uni => percentage >= uni.minCutoff);
+            });
+            
+            if (filteredData.length > 0) {
+                 filteredData
+                    .sort((a, b) => {
+                        // Sort by the highest required cutoff for the field's highest-merit university, to show top options first
+                        const maxCutoffA = Math.max(...a.universities.map(u => u.minCutoff));
+                        const maxCutoffB = Math.max(...b.universities.map(u => u.minCutoff));
+                        return maxCutoffB - maxCutoffA;
+                    })
+                    .forEach(data => {
+                        const card = createCard(data, percentage);
+                        cardsContainer.appendChild(card);
+                    });
+            } else {
+                cardsContainer.innerHTML = `<p class="text-center text-gray-500 md:col-span-2">No fields match the selected percentage. Try reducing the percentage or asking the Career Analyst for broader advice.</p>`;
+            }
+
+            updateChart(filteredData);
+        }
+
+        slider.addEventListener('input', (event) => {
+            renderContent(event.target.value);
+        });
+
+        window.addEventListener('load', () => {
+            renderContent(slider.value);
+        });
+
+    </script>
+</body>
+</html>
