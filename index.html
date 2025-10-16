@@ -3,25 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Karachi Pre-Medical Career Dashboard (Eligibility Focus)</title>
+    <title>Pre-Med Navigator: Career Guidance System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Calm Harmony -->
-    <!-- Application Structure Plan: The SPA prioritizes eligibility for application/entry test access. The percentage slider filters fields based on the lowest mandatory minimum percentage (minEligibilityPercentage). The cards display based on this low bar, emphasizing application access. The expanded card view details specific university requirements, clearly separating the low eligibility bar from the high competitive merit cutoff. The dynamic chart and LLM sections are retained to provide a full analytical experience. This structure gives the user a broader view of their application landscape while still providing the tough reality of competitive cutoffs. -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Energetic & Trustworthy (Blue, Teal, Purple) -->
+    <!-- Application Structure Plan: The layout is now a two-column "Navigator" interface. The left column (Eligibility Grid) maintains the core function of filtering fields based on minEligibilityPercentage using the slider. The right column (Personalized Guide) introduces a new interest-based quiz. The ultimate goal is to generate a highly personalized recommendation (Second Aspect) by combining the slider percentage and the quiz results, contrasting this recommendation with the full list of eligible fields (First Aspect). The design uses modern cards, a clean white/light gray background, and punchy accent colors (Teal/Purple) to appeal to students. -->
     <!-- Visualization & Content Choices: 
-        1. Percentage Filter: Report Info -> Student's Intermediate Percentage. Goal -> Filter options based on MINIMUM eligibility. Viz/Method -> HTML Range Slider. Interaction -> Filters and re-renders the career cards based on minEligibilityPercentage.
-        2. University Requirements: Report Info -> Specific university entrance requirements. Goal -> Detail & Action. Viz/Method -> Dynamic HTML List within card. Interaction -> University entries are highlighted if the student's score meets the low eligibility bar for that field. Notes clarify that final merit will be much higher.
-        3. Gemini API Integration: (FIXED) Goal -> Personalize advice and enable complex comparisons. Viz/Method -> Button-triggered LLM API call, now using the correct model endpoint to ensure functionality.
+        1. Percentage Filter: HTML Range Slider for continuous filtering (First Aspect).
+        2. Interest Profile Quiz: New set of Radio buttons (HTML/JS) to capture aptitude data (Second Aspect).
+        3. Gemini AI Recommendation: Combines Percentage + Aptitude Profile to generate the "Best Fit Career" recommendation (New Feature).
+        4. Eligibility Cards: Maintained to show the full application landscape (First Aspect).
     -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #F8F7F4;
-            color: #333333;
+            background-color: #F0F4F8; /* Light Sky Blue/Gray */
+            color: #1F2937;
+        }
+        h1, h2 {
+            font-family: 'Montserrat', sans-serif;
         }
         .card {
             background-color: #FFFFFF;
@@ -45,46 +49,36 @@
             appearance: none;
             width: 20px;
             height: 20px;
-            background: #4A90E2;
+            background: #10B981; /* Teal */
             border-radius: 50%;
             cursor: pointer;
             margin-top: -8px;
-        }
-        .slider-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #d1d5db;
-            border-radius: 9999px;
         }
         input[type='range']::-webkit-slider-thumb {
             -webkit-appearance: none;
             width: 20px;
             height: 20px;
-            background: #4A90E2;
+            background: #10B981;
             border-radius: 50%;
             cursor: pointer;
             margin-top: -8px;
         }
-        input[type='range']::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            background: #4A90E2;
-            border-radius: 50%;
-            cursor: pointer;
+        /* Style for the radio buttons in the quiz */
+        .quiz-option {
+            transition: all 0.2s;
         }
-        .chart-container {
-            position: relative;
-            width: 100%;
-            max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
-            height: auto;
-            max-height: 400px;
+        .quiz-option:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .quiz-option input:checked + label {
+            background-color: #DBEAFE; /* Light Blue */
+            border-color: #3B82F6; /* Strong Blue */
+            font-weight: 600;
         }
         .loading-spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #4A90E2;
+            border-top: 4px solid #BD10E0;
             border-radius: 50%;
             width: 24px;
             height: 24px;
@@ -99,72 +93,123 @@
 <body class="antialiased">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <header class="text-center mb-8 md:mb-12">
-            <h1 class="text-3xl md:text-5xl font-bold text-gray-800">Career Pathways Dashboard</h1>
-            <p class="mt-2 md:mt-4 text-base md:text-lg text-gray-600">For Pre-Medical Students of Karachi Board (HSC-II)</p>
+            <h1 class="text-4xl md:text-6xl font-extrabold text-[#3B82F6]">Pre-Med Navigator</h1>
+            <p class="mt-2 md:mt-4 text-lg text-gray-600">Find your best career path by matching your **score** with your **interest**.</p>
         </header>
 
-        <main>
-            <div class="sticky top-0 bg-opacity-80 backdrop-blur-md bg-[#F8F7F4] z-10 py-6 mb-8 rounded-lg shadow-sm">
-                <div class="max-w-2xl mx-auto">
-                    <label for="percentage-slider" class="block text-center font-semibold text-lg text-gray-700 mb-2">
-                        Your Intermediate (XII) Percentage: <span id="percentage-value" class="font-bold text-2xl text-[#4A90E2]">75%</span>
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+            
+            <!-- LEFT COLUMN: INPUT AND PERSONALIZED RECOMMENDATION (SECOND ASPECT) -->
+            <div class="lg:col-span-1 space-y-8">
+                
+                <!-- Percentage Slider -->
+                <div class="card p-6 border-b-4 border-[#10B981]">
+                    <h2 class="text-2xl font-bold mb-4 text-[#10B981]">1. Your Score Profile</h2>
+                    <label for="percentage-slider" class="block font-semibold text-gray-700 mb-2">
+                        Intermediate Percentage: <span id="percentage-value" class="font-bold text-3xl text-[#3B82F6]">75%</span>
                     </label>
                     <input id="percentage-slider" type="range" min="50" max="100" value="75" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-track">
                 </div>
-            </div>
-            
-            <div class="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-lg mb-8">
-                <p class="font-semibold">IMPORTANT: Eligibility vs. Admission</p>
-                <p class="text-sm">The fields shown below are those you are **ELIGIBLE TO APPLY** for (based on HEC/P.M.C. minimum percentages). Your final admission depends on competitive merit, which is often much higher than the minimum shown here, and is heavily reliant on your **Entry Test Score**.</p>
-            </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
-                <div class="lg:col-span-2">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Fields Open for Application & Entry Test</h2>
-                    <div id="cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Interest Profile Quiz (New Feature) -->
+                <div class="card p-6 border-b-4 border-[#BD10E0]">
+                    <h2 class="text-2xl font-bold mb-4 text-[#BD10E0]">2. Your Interest Profile</h2>
+                    <p class="text-sm text-gray-600 mb-4">Choose the option that best describes your natural interest in daily life:</p>
+                    
+                    <form id="interest-quiz" class="space-y-4">
+                        <div class="quiz-question border border-gray-200 rounded-lg p-3">
+                            <label class="block font-medium mb-2">A. I find myself:</label>
+                            <div class="flex flex-col space-y-2 text-sm">
+                                <div class="quiz-option border border-gray-100 rounded-lg p-2 cursor-pointer">
+                                    <input type="radio" id="q1a" name="q1" value="Technical & Logical" required class="mr-2">
+                                    <label for="q1a">Working out systems and solving puzzles (like code or math).</label>
+                                </div>
+                                <div class="quiz-option border border-gray-100 rounded-lg p-2 cursor-pointer">
+                                    <input type="radio" id="q1b" name="q1" value="People-Centric & Empathy" class="mr-2">
+                                    <label for="q1b">Caring for others' well-being and listening to problems.</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="quiz-question border border-gray-200 rounded-lg p-3">
+                            <label class="block font-medium mb-2">B. I enjoy:</label>
+                            <div class="flex flex-col space-y-2 text-sm">
+                                <div class="quiz-option border border-gray-100 rounded-lg p-2 cursor-pointer">
+                                    <input type="radio" id="q2a" name="q2" value="Research & Diagnosis" required class="mr-2">
+                                    <label for="q2a">Investigating "why" something is wrong (biological/health problems).</label>
+                                </div>
+                                <div class="quiz-option border border-gray-100 rounded-lg p-2 cursor-pointer">
+                                    <input type="radio" id="q2b" name="q2" value="Structured & Corporate" class="mr-2">
+                                    <label for="q2b">Planning, organizing events, or working in a structured corporate environment.</label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+
+                    <button id="analyze-button" class="mt-6 w-full px-6 py-3 bg-[#BD10E0] text-white font-semibold rounded-lg shadow-lg hover:bg-purple-700 transition duration-150 flex items-center justify-center disabled:opacity-50" onclick="getPersonalizedRecommendation()">
+                        <div id="analyze-loading" class="hidden loading-spinner mr-3"></div>
+                        🎯 Find My Best Career Fit
+                    </button>
+                </div>
+                
+                <!-- Personalized Recommendation Output -->
+                <div id="personalized-result" class="card p-6 border-b-4 border-blue-500 bg-white shadow-xl hidden">
+                    <h2 class="text-2xl font-bold mb-4 text-[#3B82F6]">Personalized Recommendation</h2>
+                    <div id="recommendation-content">
+                        <!-- AI Recommendation will be displayed here -->
                     </div>
                 </div>
 
-                <div class="lg:col-span-1">
-                     <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center lg:text-left">Opportunity Overview</h2>
-                     <div class="bg-white p-6 rounded-lg shadow-md">
-                        <p class="text-center text-gray-600 mb-4">This chart summarizes the types of eligible fields open to you for application.</p>
-                        <div class="chart-container">
-                            <canvas id="opportunityChart"></canvas>
-                        </div>
+                <!-- Opportunity Chart -->
+                <div class="card p-6">
+                     <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Opportunity Overview</h2>
+                     <div class="chart-container relative w-full max-w-sm mx-auto h-64">
+                        <canvas id="opportunityChart"></canvas>
                      </div>
                 </div>
+
             </div>
 
-            <!-- Global LLM Custom Query Section -->
-            <section class="mt-12 p-6 bg-white rounded-lg shadow-xl border-t-4 border-[#BD10E0]">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4">✨ Career Analyst Custom Query</h2>
-                <p class="text-gray-600 mb-4">Ask a strategic question about entry tests, competition, or career comparison, tailored to your **<span id="llm-percent-display" class="font-bold text-[#4A90E2]">75%</span>** score and chosen fields.</p>
-                
-                <textarea id="custom-query-input" rows="4" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#4A90E2] focus:border-[#4A90E2]" placeholder="Example: Given my score, what preparation strategy should I adopt to maximize my chances of getting into the DPT program at DUHS or Ziauddin?"></textarea>
-                
-                <button id="custom-query-button" class="mt-4 w-full md:w-auto px-6 py-3 bg-[#BD10E0] text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-150 flex items-center justify-center disabled:opacity-50" onclick="handleCustomQuery()">
-                    <div id="custom-query-loading" class="hidden loading-spinner mr-3"></div>
-                    ✨ Analyze & Advise
-                </button>
-                
-                <div id="custom-query-result" class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 whitespace-pre-wrap hidden">
-                    <!-- LLM result will be displayed here -->
+            <!-- RIGHT COLUMN: ELIGIBILITY GRID (FIRST ASPECT) -->
+            <div class="lg:col-span-2">
+                <div class="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-lg mb-8">
+                    <p class="font-semibold">FIRST ASPECT: Eligibility & Application</p>
+                    <p class="text-sm">The fields below show all options you are **ELIGIBLE TO APPLY** for based on your current **<span id="current-percent-display" class="font-bold text-yellow-700">75%</span>** score. Your personalized best fit is generated in the left panel.</p>
                 </div>
-            </section>
+
+                <div id="cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Career cards will be dynamically rendered here -->
+                </div>
+                
+                <!-- Global LLM Custom Query Section -->
+                <section class="mt-12 p-6 card border-t-4 border-[#BD10E0]">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">✨ Career Analyst Custom Query</h2>
+                    <p class="text-gray-600 mb-4">Ask a strategic question about entry tests, competition, or career comparison, tailored to your score.</p>
+                    
+                    <textarea id="custom-query-input" rows="4" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#BD10E0] focus:border-[#BD10E0]" placeholder="Example: Given my score, what preparation strategy should I adopt to maximize my chances of getting into the DPT program at DUHS or Ziauddin?"></textarea>
+                    
+                    <button id="custom-query-button" class="mt-4 w-full md:w-auto px-6 py-3 bg-[#BD10E0] text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-150 flex items-center justify-center disabled:opacity-50" onclick="handleCustomQuery()">
+                        <div id="custom-query-loading" class="hidden loading-spinner mr-3"></div>
+                        🔍 Analyze & Advise
+                    </button>
+                    
+                    <div id="custom-query-result" class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 whitespace-pre-wrap hidden">
+                        <!-- LLM result will be displayed here -->
+                    </div>
+                </section>
+            </div>
         </main>
     </div>
 
     <script>
         const apiKey = "";
-        // FIXED: Using the current, supported model for reliable API access
         const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
 
-        // --- UPDATED DATA STRUCTURE WITH BBSUL ADDED TO PHARM-D ---
+        // --- DATA STRUCTURE ---
         const careerData = [
             {
                 name: "MBBS / BDS (Medicine & Dentistry)",
-                minEligibilityPercentage: 60, // P.M.C. minimum for applying to public/private medical colleges
+                minEligibilityPercentage: 60, 
                 category: "Core Medical",
                 importance: "The primary medical degree. Success relies heavily on MDCAT performance.",
                 careerPakistan: "High demand in hospitals, clinics, and research.",
@@ -183,7 +228,7 @@
             },
             {
                 name: "Pharm-D (Doctor of Pharmacy)",
-                minEligibilityPercentage: 60, // HEC general eligibility for D-level programs
+                minEligibilityPercentage: 60, 
                 category: "Allied Health",
                 importance: "A professional doctorate focused on drugs, patient care, and industry.",
                 careerPakistan: "Roles in pharmaceutical industry (R&D, production), hospitals, and retail.",
@@ -200,7 +245,7 @@
             },
             {
                 name: "DPT (Doctor of Physical Therapy)",
-                minEligibilityPercentage: 50, // HEC general eligibility for 4/5-year programs
+                minEligibilityPercentage: 50, 
                 category: "Allied Health",
                 importance: "Focuses on physical rehabilitation and restoring function.",
                 careerPakistan: "High growth in hospitals, rehab centers, and private clinics.",
@@ -216,7 +261,7 @@
             },
             {
                 name: "BS in Nursing (BSN)",
-                minEligibilityPercentage: 50, // P.N.C. minimum for applying to BSN programs
+                minEligibilityPercentage: 50, 
                 category: "Allied Health",
                 importance: "A vital, globally in-demand healthcare profession.",
                 careerPakistan: "Consistently high demand in all healthcare settings.",
@@ -231,7 +276,7 @@
             },
             {
                 name: "BS in Biosciences (Microbiology, Biotech, etc.)",
-                minEligibilityPercentage: 50, // HEC general eligibility for BS programs
+                minEligibilityPercentage: 50, 
                 category: "Biological Sciences",
                 importance: "Foundation for research, medicine, and industrial applications. Often requires a postgraduate degree.",
                 careerPakistan: "Growing scope in research labs, diagnostics, and pharmaceutical QC.",
@@ -247,7 +292,7 @@
             },
             {
                 name: "BS in Computer Science (BSCS)",
-                minEligibilityPercentage: 50, // HEC general eligibility (with math requirement at some unis)
+                minEligibilityPercentage: 50, 
                 category: "Tech Field (Alternate)",
                 importance: "The booming tech industry. Pre-meds can enter but often need to pass an additional math exam/module.",
                 careerPakistan: "Vast opportunities in software houses and freelance work. Highest-paying field.",
@@ -297,9 +342,9 @@
 
         const slider = document.getElementById('percentage-slider');
         const percentageValue = document.getElementById('percentage-value');
+        const currentPercentDisplay = document.getElementById('current-percent-display');
         const cardsContainer = document.getElementById('cards-container');
         const opportunityChartCanvas = document.getElementById('opportunityChart').getContext('2d');
-        const llmPercentDisplay = document.getElementById('llm-percent-display');
         let opportunityChart;
 
         const categoryColors = {
@@ -311,7 +356,15 @@
             'STEM (Alternate)': '#EF4444'
         };
 
-        async function callGeminiApi(systemPrompt, userQuery, maxRetries = 5, useGrounding = true) {
+        // --- GEMINI API UTILITIES ---
+        // NEW SIGNATURE: Accepts elements directly instead of IDs for safety
+        async function callGeminiApi(systemPrompt, userQuery, buttonElement, loadingElement, resultElement, maxRetries = 5, useGrounding = true) {
+            
+            buttonElement.disabled = true;
+            loadingElement.classList.remove('hidden');
+            resultElement.innerHTML = `<div class="flex items-center text-[#3B82F6]"><div class="loading-spinner mr-3"></div> Analyzing data and generating advice...</div>`;
+            resultElement.classList.remove('hidden');
+
             const payload = {
                 contents: [{ parts: [{ text: userQuery }] }],
                 systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -321,53 +374,45 @@
                  payload.tools = [{ "google_search": {} }];
             }
 
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(`${API_URL}?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
+            try {
+                const response = await fetch(`${API_URL}?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-                    if (!response.ok) {
-                        if (response.status === 429 && i < maxRetries - 1) {
-                            const delay = Math.pow(2, i) * 1000;
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            continue;
-                        }
-                        throw new Error(`API call failed with status: ${response.status}`);
-                    }
+                if (!response.ok) throw new Error(`API call failed with status: ${response.status}`);
+                
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || 'The AI service returned an empty or unreadable response. Please refine your query.';
+                
+                buttonElement.disabled = false;
+                loadingElement.classList.add('hidden');
+                return text;
 
-                    const result = await response.json();
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || 'The AI service returned an empty or unreadable response. Please check your query.';
-                    return text;
-
-                } catch (error) {
-                    if (i === maxRetries - 1) {
-                        // NOTE: If this error occurs on your live site, it means the API key is not being provided or the endpoint is blocked.
-                        return `An API error occurred: ${error.message}. Please verify the API settings or try again later.`;
-                    }
-                }
+            } catch (error) {
+                buttonElement.disabled = false;
+                loadingElement.classList.add('hidden');
+                return `An API error occurred: ${error.message}. Please verify the API settings or try again later.`;
             }
         }
 
+        // UPDATED: Now locates the loading spinner inside the button and passes all elements to callGeminiApi
         async function handlePersonalizedAdvice(careerName, buttonElement, resultElement) {
-            buttonElement.disabled = true;
-            resultElement.innerHTML = `<div class="flex items-center text-[#4A90E2]"><div class="loading-spinner mr-3"></div> Generating strategic next steps...</div>`;
-            resultElement.classList.remove('hidden');
+            const loadingElement = buttonElement.querySelector('.llm-advice-loading');
 
             const systemPrompt = "Act as a specialist career counselor focusing on entry test strategies and skill development for a Pakistani pre-medical student. Your response must be highly actionable, concise, and structured. Focus on steps required to pass competitive entry tests for this specific field.";
             const userQuery = `Given the career choice of ${careerName}, provide three concrete, actionable next steps a student from the Karachi Board should focus on immediately to prepare for the competitive university entry tests and maximize their final admission merit score.`;
 
-            const advice = await callGeminiApi(systemPrompt, userQuery, 5, true);
+            const advice = await callGeminiApi(systemPrompt, userQuery, buttonElement, loadingElement, resultElement, 5, true);
 
             resultElement.innerHTML = `
                 <h5 class="font-semibold text-gray-800 mb-2">✨ Suggested Strategic Steps:</h5>
                 <div class="text-sm text-gray-700">${advice.replace(/\n/g, '<br>')}</div>
             `;
-            buttonElement.disabled = false;
         }
 
+        // UPDATED: Now passes elements directly
         async function handleCustomQuery() {
             const button = document.getElementById('custom-query-button');
             const loading = document.getElementById('custom-query-loading');
@@ -381,20 +426,43 @@
                 return;
             }
 
-            button.disabled = true;
-            loading.classList.remove('hidden');
-            resultDiv.innerHTML = 'Analyzing and generating comprehensive advice...';
-            resultDiv.classList.remove('hidden');
-
             const systemPrompt = "Act as an expert career analyst and information architect specializing in South Asian and international education and employment markets. Provide a comprehensive, structured response to the user's query, incorporating the fact that the student is from the Karachi Board and is focusing on entry test preparation for high merit fields. Use bolding and lists to ensure the result is easily digestible.";
             const userQuery = `Analyze the following query for a pre-medical student with an Intermediate percentage of ${currentPercentage}% from the Karachi Board: ${query}`;
 
-            const resultText = await callGeminiApi(systemPrompt, userQuery, 5, true);
-
-            resultDiv.innerHTML = resultText.replace(/\n/g, '<br>');
-            button.disabled = false;
-            loading.classList.add('hidden');
+            await callGeminiApi(systemPrompt, userQuery, button, loading, resultDiv, 5, true);
         }
+
+        // UPDATED: Now passes elements directly
+        function getInterestProfile() {
+            const quiz = document.getElementById('interest-quiz');
+            const q1Value = quiz.querySelector('input[name="q1"]:checked')?.value || 'Not Answered';
+            const q2Value = quiz.querySelector('input[name="q2"]:checked')?.value || 'Not Answered';
+            return `Q1: ${q1Value}, Q2: ${q2Value}`;
+        }
+
+        async function getPersonalizedRecommendation() {
+            const button = document.getElementById('analyze-button');
+            const loading = document.getElementById('analyze-loading');
+            const resultDiv = document.getElementById('recommendation-content');
+            const interestProfile = getInterestProfile();
+            const currentPercentage = slider.value;
+
+            if (interestProfile.includes('Not Answered')) {
+                document.getElementById('personalized-result').classList.remove('hidden');
+                resultDiv.innerHTML = `<p class="text-red-500 font-semibold">Please complete the Interest Profile Quiz (2 questions) before proceeding!</p>`;
+                return;
+            }
+            
+            const systemPrompt = "Act as a specialized Career Navigator. Based on the student's academic score and personal interests, generate a single, highly focused career recommendation (e.g., MBBS, BSCS, DPT, etc.). Provide a structured explanation in three parts: 1. THE RECOMMENDATION (bolded), 2. WHY IT FITS (connecting interests), and 3. STRATEGIC NEXT STEP (focusing on entry tests/skills).";
+            const userQuery = `The student has an Intermediate score of ${currentPercentage}%. Their stated interests are: ${interestProfile}. Recommend the single best career field and justify why.`;
+
+            const resultHTML = await callGeminiApi(systemPrompt, userQuery, button, loading, resultDiv, 5, true);
+
+            document.getElementById('personalized-result').classList.remove('hidden');
+            resultDiv.innerHTML = resultHTML.replace(/\n/g, '<br>');
+        }
+        
+        // --- END NEW LOGIC ---
 
         function createUniversityListHTML(universities, currentPercentage, minEligibilityPercentage) {
             let html = '<ul class="mt-2 space-y-3 max-h-72 overflow-y-auto pr-2">';
@@ -471,6 +539,7 @@
                     <div class="border-t border-gray-200 pt-4 mt-4">
                         <h4 class="font-semibold text-gray-700 mb-2">Entry Test & Merit Strategy</h4>
                         <button class="llm-advice-button px-4 py-2 bg-[#50E3C2] text-gray-800 font-semibold text-sm rounded-lg hover:bg-[#40C9A5] transition duration-150 flex items-center disabled:opacity-50">
+                            <div class="llm-advice-loading hidden loading-spinner mr-3"></div> <!-- ADDED SPINNER -->
                             ✨ Get Strategic Next Steps for Entry Tests
                         </button>
                         <div class="llm-advice-result mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-gray-700 hidden">
@@ -521,7 +590,7 @@
                         datasets: [{
                             data: data,
                             backgroundColor: backgroundColors,
-                            borderColor: '#F8F7F4',
+                            borderColor: '#F0F4F8',
                             borderWidth: 4,
                         }]
                     },
@@ -533,7 +602,7 @@
                                 position: 'bottom',
                                 labels: {
                                     font: {
-                                        size: 14,
+                                        size: 12,
                                         family: 'Inter'
                                     }
                                 }
@@ -561,16 +630,14 @@
         function renderContent(percentage) {
             percentage = parseInt(percentage); 
             percentageValue.textContent = `${percentage}%`;
-            llmPercentDisplay.textContent = `${percentage}%`;
+            currentPercentDisplay.textContent = `${percentage}%`;
             cardsContainer.innerHTML = '';
 
-            // Filter based on the minimum eligibility percentage for application
             const filteredData = careerData.filter(d => percentage >= d.minEligibilityPercentage);
             
             if (filteredData.length > 0) {
                  filteredData
                     .sort((a, b) => {
-                        // Sort by the highest ELIGIBILITY percentage first
                         return b.minEligibilityPercentage - a.minEligibilityPercentage;
                     })
                     .forEach(data => {
