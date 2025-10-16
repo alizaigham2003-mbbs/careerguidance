@@ -202,7 +202,9 @@
     </div>
 
     <script>
-        const apiKey = "";
+        // --- API KEY HAS BEEN INTEGRATED HERE ---
+        const apiKey = "AIzaSyBVCa595EKPKiwA7YGvIdIos99rKU-82SU";
+        // ----------------------------------------
         const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
 
         // --- DATA STRUCTURE ---
@@ -393,7 +395,7 @@
             } catch (error) {
                 buttonElement.disabled = false;
                 loadingElement.classList.add('hidden');
-                return `An API error occurred: ${error.message}. Please verify the API settings or try again later.`;
+                return `An API error occurred: ${error.message}. Please verify your API key is correct and try again later.`;
             }
         }
 
